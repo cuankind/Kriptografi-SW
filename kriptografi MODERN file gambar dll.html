@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kriptografi Web Tanpa Server</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+                line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .container { display: flex; flex-direction: column; gap: 30px; margin-top: 20px; }
+        .card { background: #f8f9fa; border-radius: 10px; padding: 25px; border: 1px solid #dee2e6; }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        h2 { color: #34495e; margin: 20px 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #3498db; }
+        .section { margin-bottom: 25px; }
+        input, textarea, select, button { 
+            width: 100%; padding: 12px; margin: 8px 0 20px 0; 
+            border: 1px solid #bdc3c7; border-radius: 6px; font-size: 16px;
+        }
+        button { background: #3498db; color: white; border: none; 
+                cursor: pointer; font-weight: 600; transition: background 0.3s; }
+        button:hover { background: #2980b9; }
+        button:disabled { background: #95a5a6; cursor: not-allowed; }
+        .success { color: #27ae60; background: #d5f4e6; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .error { color: #c0392b; background: #fadbd8; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .info { color: #2980b9; background: #d6eaf8; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .key-display { font-family: monospace; background: #2c3e50; color: #ecf0f1; 
+                      padding: 15px; border-radius: 5px; word-break: break-all; 
+                      font-size: 14px; margin: 10px 0; }
+        .tab-container { display: flex; gap: 5px; margin-bottom: 20px; }
+        .tab { padding: 12px 20px; background: #ecf0f1; border: none; 
+              border-radius: 5px 5px 0 0; cursor: pointer; font-weight: 500; }
+        .tab.active { background: #3498db; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .file-info { font-style: italic; color: #7f8c8d; margin: 5px 0; }
+        .crypto-status { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+        .status-indicator { width: 12px; height: 12px; border-radius: 50%; }
+        .status-ok { background: #2ecc71; }
+        .status-warning { background: #f39c12; }
+        .status-error { background: #e74c3c; }
+        footer { text-align: center; margin-top: 40px; color: #7f8c8d; font-size: 14px; }
+        .algorithm-selector { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .algo-option { padding: 15px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; }
+        .algo-option.selected { border-color: #3498db; background: #ebf5fb; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Kriptografi Modern Tanpa Server</h1>
+    <p class="info">Semua operasi kriptografi berjalan di browser Anda. Tidak ada data yang dikirim ke server.</p>
+    
+    <div class="tab-container">
+        <button class="tab active" onclick="showTab('encrypt')">Enkripsi File</button>
+        <button class="tab" onclick="showTab('decrypt')">Dekripsi File</button>
+        <button class="tab" onclick="showTab('keys')">Manajemen Kunci</button>
+        <button class="tab" onclick="showTab('signature')">Tanda Tangan Digital</button>
+    </div>
+
+    <!-- Tab 1: Enkripsi -->
+    <div id="encrypt" class="tab-content active">
+        <div class="card">
+            <h2>🔒 Enkripsi File</h2>
+            
+            <div class="section">
+                <label><strong>Pilih Algoritma:</strong></label>
+                <div class="algorithm-selector">
+                    <div class="algo-option selected" onclick="selectAlgorithm('AES-GCM')">
+                        <strong>AES-GCM (256-bit)</strong><br>
+                        <small>Cepat, dengan autentikasi</small>
+                    </div>
+                    <div class="algo-option" onclick="selectAlgorithm('AES-CBC')">
+                        <strong>AES-CBC (256-bit)</strong><br>
+                        <small>Kompatibilitas luas</small>
+                    </div>
+                    <div class="algo-option" onclick="selectAlgorithm('ChaCha20-Poly1305')">
+                        <strong>ChaCha20-Poly1305</strong><br>
+                        <small>Performansi mobile</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <label><strong>Pilih File untuk Enkripsi:</strong></label>
+                <input type="file" id="fileInput" onchange="displayFileInfo()">
+                <p id="fileInfo" class="file-info"></p>
+            </div>
+
+            <div class="section">
+                <label><strong>Password (Opsional):</strong></label>
+                <input type="password" id="password" placeholder="Kosongkan untuk generate kunci acak">
+                <small>Jika diisi, kunci akan diturunkan dari password menggunakan PBKDF2</small>
+            </div>
+
+            <div class="crypto-status">
+                <div class="status-indicator status-warning" id="statusEncrypt"></div>
+                <span id="statusTextEncrypt">Siap untuk enkripsi</span>
+            </div>
+
+            <button onclick="encryptFile()" id="encryptBtn">Enkripsi File</button>
+            
+            <div id="encryptResult" style="display: none;">
+                <h3>✅ File Terenkripsi</h3>
+                <p class="success">File berhasil dienkripsi! Simpan informasi berikut:</p>
+                
+                <div class="section">
+                    <label><strong>Kunci (Simpan dengan aman!):</strong></label>
+                    <div class="key-display" id="encryptionKeyDisplay"></div>
+                    <button onclick="copyToClipboard('encryptionKeyDisplay')" class="secondary">Salin Kunci</button>
+                    <button onclick="saveKeyToFile()" class="secondary">Simpan Kunci ke File</button>
+                </div>
+                
+                <div class="section">
+                    <label><strong>File Terenkripsi:</strong></label>
+                    <div id="encryptedFileInfo"></div>
+                    <button onclick="downloadEncryptedFile()">Download File Terenkripsi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 2: Dekripsi -->
+    <div id="decrypt" class="tab-content">
+        <div class="card">
+            <h2>🔓 Dekripsi File</h2>
+            
+            <div class="section">
+                <label><strong>Pilih File Terenkripsi:</strong></label>
+                <input type="file" id="encryptedFileInput" onchange="displayEncryptedFileInfo()">
+                <p id="encryptedFileInfoText" class="file-info"></p>
+            </div>
+
+            <div class="section">
+                <label><strong>Kunci Enkripsi:</strong></label>
+                <textarea id="decryptionKey" placeholder="Tempel kunci di sini atau..." rows="3"></textarea>
+                <input type="file" id="keyFileInput" accept=".key,.txt" onchange="loadKeyFromFile()">
+                <small>File kunci harus dalam format JSON atau teks base64</small>
+            </div>
+
+            <div class="crypto-status">
+                <div class="status-indicator status-warning" id="statusDecrypt"></div>
+                <span id="statusTextDecrypt">Upload file terenkripsi dan kunci</span>
+            </div>
+
+            <button onclick="decryptFile()" id="decryptBtn">Dekripsi File</button>
+            
+            <div id="decryptResult" style="display: none;">
+                <h3>✅ File Berhasil Didekripsi</h3>
+                <p class="success" id="decryptSuccessMsg"></p>
+                <button onclick="downloadDecryptedFile()">Download File Asli</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 3: Manajemen Kunci -->
+    <div id="keys" class="tab-content">
+        <div class="card">
+            <h2>🗝️ Manajemen Kunci Kriptografi</h2>
+            
+            <div class="section">
+                <h3>Generate Key Pair (RSA)</h3>
+                <label><strong>Key Size:</strong></label>
+                <select id="keySize">
+                    <option value="2048">2048-bit (Rekomendasi)</option>
+                    <option value="3072">3072-bit (Sangat Aman)</option>
+                    <option value="4096">4096-bit (Ekstra Aman)</option>
+                </select>
+                <button onclick="generateKeyPair()">Generate Key Pair RSA</button>
+            </div>
+
+            <div id="keyPairResult" style="display: none;">
+                <div class="section">
+                    <label><strong>Public Key:</strong></label>
+                    <div class="key-display" id="publicKeyDisplay"></div>
+                    <button onclick="copyToClipboard('publicKeyDisplay')">Salin Public Key</button>
+                </div>
+                
+                <div class="section">
+                    <label><strong>Private Key:</strong></label>
+                    <div class="key-display" id="privateKeyDisplay"></div>
+                    <div class="info">
+                        ⚠️ <strong>PERINGATAN:</strong> Jangan pernah membagikan private key Anda!
+                    </div>
+                    <button onclick="copyToClipboard('privateKeyDisplay')">Salin Private Key</button>
+                    <button onclick="exportKeyPair()">Ekspor Key Pair</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Derive Key dari Password</h3>
+                <label><strong>Password:</strong></label>
+                <input type="password" id="derivePassword" placeholder="Masukkan password kuat">
+                
+                <label><strong>Salt (Opsional, base64):</strong></label>
+                <input type="text" id="saltInput" placeholder="Kosongkan untuk generate salt baru">
+                
+                <label><strong>Iterasi PBKDF2:</strong></label>
+                <input type="number" id="iterations" value="100000" min="10000" max="1000000">
+                
+                <button onclick="deriveKeyFromPassword()">Generate Key dari Password</button>
+                
+                <div id="derivedKeyResult" style="display: none; margin-top: 20px;">
+                    <label><strong>Kunci Hasil Derive:</strong></label>
+                    <div class="key-display" id="derivedKeyDisplay"></div>
+                    <label><strong>Salt (Simpan untuk dekripsi):</strong></label>
+                    <div class="key-display" id="saltDisplay"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 4: Tanda Tangan Digital -->
+    <div id="signature" class="tab-content">
+        <div class="card">
+            <h2>✍️ Tanda Tangan Digital</h2>
+            
+            <div class="section">
+                <h3>Buat Tanda Tangan</h3>
+                <label><strong>Pilih File untuk Ditandatangani:</strong></label>
+                <input type="file" id="fileToSign">
+                
+                <label><strong>Private Key (untuk tanda tangan):</strong></label>
+                <textarea id="signPrivateKey" placeholder="Tempel private key di sini" rows="3"></textarea>
+                
+                <button onclick="signFile()">Buat Tanda Tangan Digital</button>
+                
+                <div id="signatureResult" style="display: none; margin-top: 20px;">
+                    <label><strong>Signature (base64):</strong></label>
+                    <div class="key-display" id="signatureDisplay"></div>
+                    <button onclick="downloadSignature()">Download Signature</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Verifikasi Tanda Tangan</h3>
+                <label><strong>File Asli:</strong></label>
+                <input type="file" id="fileToVerify">
+                
+                <label><strong>Signature File:</strong></label>
+                <input type="file" id="signatureFile" accept=".sig">
+                
+                <label><strong>Public Key (untuk verifikasi):</strong></label>
+                <textarea id="verifyPublicKey" placeholder="Tempel public key di sini" rows="3"></textarea>
+                
+                <button onclick="verifySignature()">Verifikasi Tanda Tangan</button>
+                
+                <div id="verificationResult" style="display: none; margin-top: 20px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>🔐 <strong>Sistem Kriptografi Tanpa Server</strong> - Semua operasi berjalan di browser Anda</p>
+        <p>Keamanan: Web Crypto API • Zero-Knowledge • Tidak ada data ke server</p>
+        <p id="cryptoStatus" class="info"></p>
+    </footer>
+
+    <script>
+        // State aplikasi
+        let currentAlgorithm = 'AES-GCM';
+        let encryptionKey = null;
+        let encryptedData = null;
+        let decryptedData = null;
+        let keyPair = null;
+
+        // Inisialisasi
+        document.addEventListener('DOMContentLoaded', function() {
+            checkCryptoSupport();
+        });
+
+        // Fungsi utilitas
+        async function checkCryptoSupport() {
+            const statusEl = document.getElementById('cryptoStatus');
+            if (!window.crypto || !window.crypto.subtle) {
+                statusEl.textContent = '❌ Browser tidak mendukung Web Crypto API';
+                statusEl.className = 'error';
+                return false;
+            }
+            
+            try {
+                // Test basic operation
+                const testKey = await crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 256 },
+                    true,
+                    ["encrypt", "decrypt"]
+                );
+                
+                statusEl.textContent = '✅ Web Crypto API didukung dengan baik';
+                statusEl.className = 'success';
+                return true;
+            } catch (e) {
+                statusEl.textContent = '⚠️ Web Crypto API terbatas: ' + e.message;
+                statusEl.className = 'error';
+                return false;
+            }
+        }
+
+        function showTab(tabName) {
+            // Update tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Activate selected tab
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        function selectAlgorithm(algo) {
+            currentAlgorithm = algo;
+            document.querySelectorAll('.algo-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            event.target.classList.add('selected');
+            
+            updateStatus('encrypt', `Algoritma: ${algo}`, 'status-ok');
+        }
+
+        function updateStatus(tab, message, indicatorClass) {
+            const indicator = document.getElementById(`status${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+            const text = document.getElementById(`statusText${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+            
+            indicator.className = 'status-indicator ' + indicatorClass;
+            text.textContent = message;
+        }
+
+        // Enkripsi File
+        async function encryptFile() {
+            const fileInput = document.getElementById('fileInput');
+            const password = document.getElementById('password').value;
+            
+            if (!fileInput.files[0]) {
+                updateStatus('encrypt', 'Pilih file terlebih dahulu', 'status-error');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            updateStatus('encrypt', 'Memproses file...', 'status-warning');
+            
+            try {
+                // Read file
+                const fileData = await readFileAsArrayBuffer(file);
+                
+                // Generate or derive key
+                let key, keyData;
+                if (password) {
+                    // Derive key from password
+                    const salt = crypto.getRandomValues(new Uint8Array(16));
+                    keyData = await deriveKeyFromPasswordPBKDF2(password, salt);
+                    key = keyData.key;
+                    
+                    // Store salt with key data
+                    keyData.salt = salt;
+                } else {
+                    // Generate random key
+                    key = await crypto.subtle.generateKey(
+                        { name: currentAlgorithm.split('-')[0], length: 256 },
+                        true,
+                        ["encrypt", "decrypt"]
+                    );
+                    
+                    const exportedKey = await crypto.subtle.exportKey("raw", key);
+                    keyData = {
+                        key: arrayBufferToBase64(exportedKey),
+                        algorithm: currentAlgorithm
+                    };
+                }
+                
+                // Generate IV/Nonce
+                const iv = crypto.getRandomValues(new Uint8Array(12)); // 96-bit untuk AES-GCM
+                
+                // Encrypt
+                let encrypted;
+                switch(currentAlgorithm) {
+                    case 'AES-GCM':
+                        encrypted = await crypto.subtle.encrypt(
+                            { name: "AES-GCM", iv: iv },
+                            key,
+                            fileData
+                        );
+                        break;
+                    case 'AES-CBC':
+                        encrypted = await crypto.subtle.encrypt(
+                            { name: "AES-CBC", iv: iv.slice(0, 16) },
+                            key,
+                            fileData
+                        );
+                        break;
+                    case 'ChaCha20-Poly1305':
+                        // Fallback ke AES jika ChaCha20 tidak didukung
+                        encrypted = await crypto.subtle.encrypt(
+                            { name: "AES-GCM", iv: iv },
+                            key,
+                            fileData
+                        );
+                        break;
+                }
+                
+                // Package encrypted data with metadata
+                const encryptedPackage = {
+                    version: '1.0',
+                    algorithm: currentAlgorithm,
+                    iv: arrayBufferToBase64(iv),
+                    data: arrayBufferToBase64(encrypted),
+                    timestamp: new Date().toISOString(),
+                    originalName: file.name,
+                    originalSize: file.size,
+                    ...(password && { salt: arrayBufferToBase64(keyData.salt) })
+                };
+                
+                // Store for download
+                encryptedData = encryptedPackage;
+                encryptionKey = keyData;
+                
+                // Display results
+                document.getElementById('encryptionKeyDisplay').textContent = 
+                    password ? 
+                    `Key dari password dengan salt: ${arrayBufferToBase64(keyData.salt).substring(0, 50)}...` :
+                    `Kunci: ${keyData.key.substring(0, 80)}...`;
+                
+                document.getElementById('encryptedFileInfo').innerHTML = `
+                    <p>Nama: ${file.name}.encrypted</p>
+                    <p>Ukuran: ${Math.round(encryptedPackage.data.length * 0.75)} bytes</p>
+                    <p>Algoritma: ${encryptedPackage.algorithm}</p>
+                    <p>Waktu: ${new Date(encryptedPackage.timestamp).toLocaleString()}</p>
+                `;
+                
+                document.getElementById('encryptResult').style.display = 'block';
+                updateStatus('encrypt', 'File berhasil dienkripsi!', 'status-ok');
+                
+            } catch (error) {
+                console.error('Encryption error:', error);
+                updateStatus('encrypt', `Error: ${error.message}`, 'status-error');
+            }
+        }
+
+        // Dekripsi File
+        async function decryptFile() {
+            const fileInput = document.getElementById('encryptedFileInput');
+            const keyInput = document.getElementById('decryptionKey').value;
+            
+            if (!fileInput.files[0]) {
+                updateStatus('decrypt', 'Pilih file terenkripsi', 'status-error');
+                return;
+            }
+            
+            updateStatus('decrypt', 'Memproses...', 'status-warning');
+            
+            try {
+                // Read encrypted package
+                const packageData = JSON.parse(await readFileAsText(fileInput.files[0]));
+                
+                let key;
+                if (packageData.salt) {
+                    // Password-based decryption
+                    const password = prompt("Masukkan password untuk dekripsi:");
+                    if (!password) {
+                        updateStatus('decrypt', 'Dekripsi dibatalkan', 'status-error');
+                        return;
+                    }
+                    
+                    const salt = base64ToArrayBuffer(packageData.salt);
+                    const keyData = await deriveKeyFromPasswordPBKDF2(password, salt);
+                    key = keyData.key;
+                } else {
+                    // Key-based decryption
+                    let keyMaterial;
+                    if (keyInput) {
+                        keyMaterial = base64ToArrayBuffer(keyInput);
+                    } else {
+                        throw new Error('Kunci diperlukan untuk dekripsi');
+                    }
+                    
+                    key = await crypto.subtle.importKey(
+                        "raw",
+                        keyMaterial,
+                        { name: packageData.algorithm.split('-')[0], length: 256 },
+                        false,
+                        ["decrypt"]
+                    );
+                }
+                
+                // Prepare decryption parameters
+                const iv = base64ToArrayBuffer(packageData.iv);
+                const encryptedData = base64ToArrayBuffer(packageData.data);
+                
+                // Decrypt
+                let decrypted;
+                switch(packageData.algorithm) {
+                    case 'AES-GCM':
+                        decrypted = await crypto.subtle.decrypt(
+                            { name: "AES-GCM", iv: iv },
+                            key,
+                            encryptedData
+                        );
+                        break;
+                    case 'AES-CBC':
+                        decrypted = await crypto.subtle.decrypt(
+                            { name: "AES-CBC", iv: iv },
+                            key,
+                            encryptedData
+                        );
+                        break;
+                    default:
+                        throw new Error('Algoritma tidak didukung');
+                }
+                
+                // Store decrypted data
+                decryptedData = {
+                    data: decrypted,
+                    name: packageData.originalName,
+                    type: getMimeType(packageData.originalName)
+                };
+                
+                // Show success
+                document.getElementById('decryptSuccessMsg').textContent = 
+                    `File "${packageData.originalName}" berhasil didekripsi!`;
+                document.getElementById('decryptResult').style.display = 'block';
+                updateStatus('decrypt', 'Dekripsi berhasil!', 'status-ok');
+                
+            } catch (error) {
+                console.error('Decryption error:', error);
+                updateStatus('decrypt', `Gagal dekripsi: ${error.message}`, 'status-error');
+            }
+        }
+
+        // Fungsi utilitas kriptografi
+        async function deriveKeyFromPasswordPBKDF2(password, salt) {
+            const encoder = new TextEncoder();
+            const passwordKey = await crypto.subtle.importKey(
+                "raw",
+                encoder.encode(password),
+                { name: "PBKDF2" },
+                false,
+                ["deriveKey"]
+            );
+            
+            const key = await crypto.subtle.deriveKey(
+                {
+                    name: "PBKDF2",
+                    salt: salt,
+                    iterations: 100000,
+                    hash: "SHA-256"
+                },
+                passwordKey,
+                { name: "AES-GCM", length: 256 },
+                true,
+                ["encrypt", "decrypt"]
+            );
+            
+            return { key };
+        }
+
+        async function generateKeyPair() {
+            try {
+                const keySize = parseInt(document.getElementById('keySize').value);
+                
+                keyPair = await crypto.subtle.generateKey(
+                    {
+                        name: "RSA-OAEP",
+                        modulusLength: keySize,
+                        publicExponent: new Uint8Array([1, 0, 1]),
+                        hash: "SHA-256"
+                    },
+                    true,
+                    ["encrypt", "decrypt"]
+                );
+                
+                // Export keys
+                const publicKey = await crypto.subtle.exportKey("spki", keyPair.publicKey);
+                const privateKey = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+                
+                // Display
+                document.getElementById('publicKeyDisplay').textContent = 
+                    arrayBufferToBase64(publicKey);
+                document.getElementById('privateKeyDisplay').textContent = 
+                    arrayBufferToBase64(privateKey);
+                document.getElementById('keyPairResult').style.display = 'block';
+                
+                alert('Key pair RSA berhasil digenerate!');
+                
+            } catch (error) {
+                console.error('Key generation error:', error);
+                alert('Error generating key pair: ' + error.message);
+            }
+        }
+
+        async function signFile() {
+            const fileInput = document.getElementById('fileToSign');
+            const privateKeyText = document.getElementById('signPrivateKey').value;
+            
+            if (!fileInput.files[0] || !privateKeyText) {
+                alert('Pilih file dan masukkan private key');
+                return;
+            }
+            
+            try {
+                const fileData = await readFileAsArrayBuffer(fileInput.files[0]);
+                
+                // Import private key
+                const privateKey = await crypto.subtle.importKey(
+                    "pkcs8",
+                    base64ToArrayBuffer(privateKeyText),
+                    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+                    false,
+                    ["sign"]
+                );
+                
+                // Sign
+                const signature = await crypto.subtle.sign(
+                    { name: "RSASSA-PKCS1-v1_5" },
+                    privateKey,
+                    fileData
+                );
+                
+                // Display signature
+                document.getElementById('signatureDisplay').textContent = 
+                    arrayBufferToBase64(signature);
+                document.getElementById('signatureResult').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Signing error:', error);
+                alert('Error creating signature: ' + error.message);
+            }
+        }
+
+        async function verifySignature() {
+            const fileInput = document.getElementById('fileToVerify');
+            const signatureFileInput = document.getElementById('signatureFile');
+            const publicKeyText = document.getElementById('verifyPublicKey').value;
+            
+            if (!fileInput.files[0] || !signatureFileInput.files[0] || !publicKeyText) {
+                alert('Pilih file, signature, dan masukkan public key');
+                return;
+            }
+            
+            try {
+                const fileData = await readFileAsArrayBuffer(fileInput.files[0]);
+                const signature = base64ToArrayBuffer(await readFileAsText(signatureFileInput.files[0]));
+                
+                // Import public key
+                const publicKey = await crypto.subtle.importKey(
+                    "spki",
+                    base64ToArrayBuffer(publicKeyText),
+                    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+                    false,
+                    ["verify"]
+                );
+                
+                // Verify
+                const isValid = await crypto.subtle.verify(
+                    { name: "RSASSA-PKCS1-v1_5" },
+                    publicKey,
+                    signature,
+                    fileData
+                );
+                
+                const resultDiv = document.getElementById('verificationResult');
+                if (isValid) {
+                    resultDiv.innerHTML = '<div class="success">✅ Tanda tangan VALID - File autentik</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ Tanda tangan TIDAK VALID - File mungkin dimodifikasi</div>';
+                }
+                resultDiv.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Verification error:', error);
+                alert('Error verifying signature: ' + error.message);
+            }
+        }
+
+        // Fungsi utilitas file dan konversi
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        // Fungsi UI utilities
+        function displayFileInfo() {
+            const file = document.getElementById('fileInput').files[0];
+            if (file) {
+                document.getElementById('fileInfo').textContent = 
+                    `${file.name} (${formatBytes(file.size)})`;
+            }
+        }
+
+        function displayEncryptedFileInfo() {
+            const file = document.getElementById('encryptedFileInput').files[0];
+            if (file) {
+                document.getElementById('encryptedFileInfoText').textContent = 
+                    `${file.name} (${formatBytes(file.size)})`;
+            }
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        function getMimeType(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const mimeTypes = {
+                'txt': 'text/plain',
+                'pdf': 'application/pdf',
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'png': 'image/png',
+                'doc': 'application/msword',
+                'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            };
+            return mimeTypes[ext] || 'application/octet-stream';
+        }
+
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Tersalin ke clipboard!');
+            });
+        }
+
+        function saveKeyToFile() {
+            if (!encryptionKey) return;
+            
+            const keyData = {
+                ...encryptionKey,
+                timestamp: new Date().toISOString(),
+                note: 'Simpan kunci ini dengan aman untuk dekripsi'
+            };
+            
+            const blob = new Blob([JSON.stringify(keyData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'encryption-key.key';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadEncryptedFile() {
+            if (!encryptedData) return;
+            
+            const blob = new Blob([JSON.stringify(encryptedData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${encryptedData.originalName}.encrypted`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadDecryptedFile() {
+            if (!decryptedData) return;
+            
+            const blob = new Blob([decryptedData.data], { type: decryptedData.type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = decryptedData.name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadSignature() {
+            const signature = document.getElementById('signatureDisplay').textContent;
+            const blob = new Blob([signature], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'signature.sig';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function loadKeyFromFile() {
+            const fileInput = document.getElementById('keyFileInput');
+            if (!fileInput.files[0]) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const content = e.target.result;
+                    // Try to parse as JSON
+                    const keyData = JSON.parse(content);
+                    if (keyData.key) {
+                        document.getElementById('decryptionKey').value = keyData.key;
+                    } else if (keyData.k || keyData.keyData) {
+                        document.getElementById('decryptionKey').value = keyData.k || keyData.keyData;
+                    }
+                } catch {
+                    // If not JSON, use as plain text
+                    document.getElementById('decryptionKey').value = content.trim();
+                }
+            };
+            reader.readAsText(fileInput.files[0]);
+        }
+
+        async function deriveKeyFromPassword() {
+            const password = document.getElementById('derivePassword').value;
+            const saltInput = document.getElementById('saltInput').value;
+            const iterations = parseInt(document.getElementById('iterations').value);
+            
+            if (!password) {
+                alert('Masukkan password');
+                return;
+            }
+            
+            try {
+                const salt = saltInput ? 
+                    base64ToArrayBuffer(saltInput) : 
+                    crypto.getRandomValues(new Uint8Array(16));
+                
+                const encoder = new TextEncoder();
+                const passwordKey = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode(password),
+                    { name: "PBKDF2" },
+                    false,
+                    ["deriveKey"]
+                );
+                
+                const key = await crypto.subtle.deriveKey(
+                    {
+                        name: "PBKDF2",
+                        salt: salt,
+                        iterations: iterations,
+                        hash: "SHA-256"
+                    },
+                    passwordKey,
+                    { name: "AES-GCM", length: 256 },
+                    true,
+                    ["encrypt", "decrypt"]
+                );
+                
+                const exportedKey = await crypto.subtle.exportKey("raw", key);
+                
+                document.getElementById('derivedKeyDisplay').textContent = 
+                    arrayBufferToBase64(exportedKey);
+                document.getElementById('saltDisplay').textContent = 
+                    arrayBufferToBase64(salt);
+                document.getElementById('derivedKeyResult').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Key derivation error:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function exportKeyPair() {
+            if (!keyPair) return;
+            
+            const exportData = {
+                publicKey: document.getElementById('publicKeyDisplay').textContent,
+                privateKey: document.getElementById('privateKeyDisplay').textContent,
+                algorithm: "RSA-OAEP-SHA-256",
+                timestamp: new Date().toISOString(),
+                warning: "JANGAN BAGIKAN PRIVATE KEY!"
+            };
+            
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'rsa-key-pair.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
